@@ -113,8 +113,8 @@ const getAllProperties = function(options, limit = 10) {
   if(options.owner_id){
     queryParams.push (`${options.owner_id}`);
     queryString.includes('WHERE') ?
-    queryString += `\nAND owner_id LIKE $${queryParams.length}` :
-    queryString += `\nWHERE owner_id LIKE $${queryParams.length}`
+    queryString += `\nAND owner_id = $${queryParams.length}` :
+    queryString += `\nWHERE owner_id = $${queryParams.length}`
   }
 
   if(options.minimum_price_per_night){
