@@ -79,9 +79,9 @@ const getAllReservations = function(guest_id, limit = 10) {
   GROUP BY properties.id, reservations.id 
   HAVING end_date < now()::date
   ORDER BY start_date DESC
-  LIMIT 10;
+  LIMIT $2;
   `;
-  const values = [guest_id];
+  const values = [guest_id, limit];
 
   return pool.query(query, values)
   .then(res => res.rows)
@@ -97,10 +97,57 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function(options, limit = 10) {
-  return pool.query(`
-  SELECT * FROM properties
-  LIMIT $1
-  `, [limit])
+  const queryParams = [limit];
+
+  let queryString = `
+  SELECT properties.* , AVG(property_reviews.rating) AS average_rating
+  FROM properties
+  JOIN property_reviews ON property_reviews.property_id = properties.id`
+  
+
+  if(options.city){
+    queryParams.push (`%${options.city}%`);
+    queryString += `\nWHERE city LIKE $${queryParams.length}`
+  }
+
+  if(options.owner_id){
+    queryParams.push (`${options.owner_id}`);
+    queryString.includes('WHERE') ?
+    queryString += `\nAND owner_id LIKE $${queryParams.length}` :
+    queryString += `\nWHERE owner_id LIKE $${queryParams.length}`
+  }
+
+  if(options.minimum_price_per_night){
+    queryParams.push (`${options.minimum_price_per_night * 100}`);
+    queryString.includes('WHERE') ?
+    queryString += `\nAND cost_per_night >= $${queryParams.length}` :
+    queryString += `\nWHERE cost_per_night >= $${queryParams.length}`
+  }
+
+  if(options.maximum_price_per_night){
+    queryParams.push (`${options.maximum_price_per_night * 100}`);
+    queryString.includes('WHERE') ?
+    queryString += `\nAND cost_per_night <= $${queryParams.length}` :
+    queryString += `\nWHERE cost_per_night <= $${queryParams.length}`
+  }
+
+  queryString += `
+  GROUP BY properties.id`;
+
+  if(options.minimum_rating){
+    queryParams.push (`${options.minimum_rating}`);
+    queryString += `\nHAVING AVG(property_reviews.rating) >= $${queryParams.length}`
+  }
+
+  queryString += `
+  ORDER BY cost_per_night
+  LIMIT $1;
+  `;
+  
+  
+  console.log(queryString, queryParams);
+
+  return pool.query(queryString, queryParams)
   .then(res => res.rows);
 }
 exports.getAllProperties = getAllProperties;
